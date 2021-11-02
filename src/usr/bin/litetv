@@ -1,0 +1,60 @@
+#!/bin/sh
+# w_scan -ft -c US -M > ~/.config/mpv/channels.conf
+
+my_channels=~/.config/mpv/channels.conf
+
+path_temp="/tmp/tv_channels"
+counter_desktop=0
+
+export GTK_THEME=Numix
+
+sort $my_channels > /tmp/channels.conf
+my_channels=/tmp/channels.conf
+
+if [ ! -f ~/.config/mpv/channels.conf ]; then
+	yad --text "channels.conf file is missing"
+	exit 1
+fi
+
+mkdir -p $path_temp/scripts
+
+while IFS= read -r line
+	do
+		((counter_desktop+=1))
+
+		channel=`echo $line | cut -d: -f1`
+
+		cat > $path_temp/scripts/$counter_desktop.sh <<EOF
+#!/bin/bash
+
+		kill -9 \`ps -ef | grep "mpv dvb://" | grep -v grep | awk '{print \$2}'\`
+		mpv dvb://$channel -vo=gpu \
+#		-cache 8192 --cache-dir=/mnt/sda1/media/streams/cache --cache-on-disk=yes
+# --stream-record=/mnt/sda1/media/streams/c/newsave.ts
+EOF
+chmod 700 $path_temp/scripts/$counter_desktop.sh
+
+# icon
+	cat > $path_temp/$counter_desktop.desktop <<EOF
+[Desktop Entry]
+Encoding=UTF-8
+Name=$channel
+Comment=$channel
+Exec=$path_temp/scripts/$counter_desktop.sh
+Terminal=false
+Icon=/usr/share/tv_gui/icons/$channel.png
+Type=Application
+Categories=HelpVideos;
+EOF
+	done < $my_channels
+# todo: sort channels
+
+yad  --title="TV Tuner DVB" \
+	--window-icon="/usr/share/pixmaps/tcpdump.png" \
+	 --geometry=900x550 \
+	 --icons \
+	 --icon-size=64 \
+	 --item-width=64 \
+	 --single-click \
+	 --no-buttons \
+	 --read-dir=$path_temp &

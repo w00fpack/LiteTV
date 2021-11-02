@@ -1,0 +1,9 @@
+[Desktop Entry]
+Encoding=UTF-8
+Name=LiteTV
+Comment=DVR for TV hardware
+Exec=/usr/bin/lighttv
+Terminal=false
+Icon=lighttv
+Type=Application
+Categories=IPTV;

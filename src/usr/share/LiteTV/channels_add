@@ -1,0 +1,84 @@
+#!/bin/sh
+
+LOGFILE=${1:-/tmp/litetv_channels.log}
+CONFFILE=${1:-/tmp/litetv_channels.conf}
+
+#export GTK_THEME=Kripton
+
+app_key=$(($RANDOM * $$))
+
+> $CONFFILE
+> $LOGFILE
+
+w_scan -ft -c US -M 1> $CONFFILE 2> $LOGFILE &
+# && echo "100%" >> "$scan_pipe"
+
+PARSER='{ \
+	font=""; \
+	color="#FFFFFF"}; \
+	/kernel/ {font="italic"}; \
+	/warn/ {color="#FFF4B8"}; \
+	/error/ {color="#FFD0D8"}; \
+	OFS="\n" {print $1, $3, $4 " " $5, $6, font, color; \
+	fflush()
+}'
+
+sleep 3
+head -20 $LOGFILE > $LOGFILE.head
+
+yad \
+	--plug="$app_key" --tabnum=0 \
+	--text-info < $LOGFILE.head &
+
+
+export scan_pipe=$(mktemp -u --tmpdir ytd.XXXXXXXX)
+mkfifo "$scan_pipe"
+
+trap "rm -f $scan_pipe" EXIT
+
+exec 3<> $scan_pipe
+
+yad	\
+	--plug="$app_key" --tabnum=1 \
+	--progress \
+	--borders=6 \
+	<&3 &
+
+
+tail -f -n +22 $LOGFILE | awk "$PARSER" | \
+	yad \
+		--plug="$app_key" --tabnum=2 \
+		--list --tail \
+		--column kHz \
+		--column "Scan Time" \
+		--column Status \
+		--column Type:TIP \
+		--column @font@ \
+		--column @back@ &
+
+yad \
+	--title="Channel Scan" \
+	--window-icon=logviewer --center --width=600 --height=400 \
+	--paned --key="$app_key" \
+	--splitter=200 \
+	--tab="Top" \
+	--tab="Bottom" \
+	--no-buttons &
+
+#cp $CONFFILE ~/.config/mpv/channels.conf
+#ln -s ~/.config/mpv/channels.conf ~/.mplayer/channels.conf
+
+
+echo "2:@disable@" >> "$scan_pipe"
+echo "#Preparing to channel scan" >> "$scan_pipe"
+sleep 1
+echo "#Scanning" >> "$scan_pipe"
+
+while true
+do
+	sleep 2
+	a=`cat $LOGFILE  | wc -l`
+	((a = a / 2))
+	echo "$a%" >> $scan_pipe
+done
+
